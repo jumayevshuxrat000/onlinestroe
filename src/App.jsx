@@ -1,10 +1,9 @@
-import React, {
-  createContext,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import React, { useEffect, useState } from "react";
+import Shop from "./pages/Shop";
+import CategoriesPage from "./pages/CategoriesPage";
+import BlogPage from "./pages/BlogPage";
+import AboutPage from "./pages/AboutPage";
+import { products as allProducts } from "./data/products";
 import {
   ShoppingBag,
   Search,
@@ -45,74 +44,12 @@ import {
   Youtube,
   Linkedin,
 } from "lucide-react";
-
-/* ============================================================
-   1) SAVAT (CART) TIZIMI — butun sayt shu bitta holatni ishlatadi
-   ============================================================ */
-const CartContext = createContext(null);
-
-function CartProvider({ children }) {
-  const [items, setItems] = useState([]);
-  const [isOpen, setIsOpen] = useState(false);
-  const [toast, setToast] = useState("");
-
-  function addItem(product, qty = 1) {
-    setItems((prev) => {
-      const existing = prev.find((i) => i.id === product.id);
-      if (existing) {
-        return prev.map((i) =>
-          i.id === product.id ? { ...i, qty: i.qty + qty } : i
-        );
-      }
-      return [...prev, { ...product, qty }];
-    });
-    setToast(`${product.name} savatga qo'shildi`);
-    window.clearTimeout(addItem._t);
-    addItem._t = window.setTimeout(() => setToast(""), 2200);
-  }
-
-  function removeItem(id) {
-    setItems((prev) => prev.filter((i) => i.id !== id));
-  }
-
-  function updateQty(id, qty) {
-    setItems((prev) =>
-      prev.map((i) => (i.id === id ? { ...i, qty: Math.max(1, qty) } : i))
-    );
-  }
-
-  function clearCart() {
-    setItems([]);
-  }
-
-  const totalCount = items.reduce((sum, i) => sum + i.qty, 0);
-  const subtotal = items.reduce((sum, i) => sum + i.qty * i.price, 0);
-
-  const value = useMemo(
-    () => ({
-      items,
-      addItem,
-      removeItem,
-      updateQty,
-      clearCart,
-      totalCount,
-      subtotal,
-      isOpen,
-      toast,
-      openCart: () => setIsOpen(true),
-      closeCart: () => setIsOpen(false),
-    }),
-    [items, isOpen, toast]
-  );
-
-  return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
-}
-
-function useCart() {
-  const ctx = useContext(CartContext);
-  if (!ctx) throw new Error("useCart faqat <CartProvider> ichida ishlaydi");
-  return ctx;
-}
+import {
+  CartProvider,
+  WishlistProvider,
+  useCart,
+  useWishlist,
+} from "./contexts/StoreContext";
 
 /* ============================================================
    2) LOGIN SAHIFASI (modal sifatida ochiladi)
@@ -387,131 +324,157 @@ function useGoogleFont() {
 
 const navLinks = ["Home", "Shop", "Categories", "Blog", "About"];
 
-function LuxoraHome({ onOpenLogin }) {
-  useGoogleFont();
+/* ============================================================
+   NAVBAR — barcha sahifalarda ko'rinadi, Home/Shop/Categories
+   orasida almashtiradi (activePage + onNavigate orqali)
+   ============================================================ */
+function Navbar({ onOpenLogin, activePage, onNavigate, onOpenSearch }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { totalCount, openCart } = useCart();
+  const { totalCount: wishlistCount, openWishlist } = useWishlist();
+
+  function handleNavClick(item) {
+    onNavigate(item.toLowerCase());
+    setMobileOpen(false);
+  }
 
   return (
-    <div className="min-h-screen w-full">
-      {/* NAVBAR */}
-      <header className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 shrink-0">
+    <header className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 shrink-0">
+          <div
+            className="w-8 h-8 rounded-lg flex items-center justify-center"
+            style={{
+              background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
+            }}
+          >
+            <ShoppingBag className="w-4 h-4 text-white" />
+          </div>
+          <span className="font-bold text-gray-900 text-lg">Luxora</span>
+        </div>
+
+        <nav className="hidden lg:flex items-center gap-7 text-sm font-medium">
+          {navLinks.map((item) => (
+            <button
+              key={item}
+              type="button"
+              onClick={() => handleNavClick(item)}
+              className={
+                activePage === item.toLowerCase()
+                  ? "text-indigo-600"
+                  : "text-gray-600 hover:text-gray-900 transition-colors"
+              }
+            >
+              {item}
+            </button>
+          ))}
+        </nav>
+
+        <div className="hidden md:flex items-center flex-1 max-w-xs">
+          <div className="relative w-full cursor-pointer" onClick={onOpenSearch}>
+            <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <div
-              className="w-8 h-8 rounded-lg flex items-center justify-center"
-              style={{
-                background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
-              }}
+              className="w-full bg-gray-100 rounded-full pl-9 pr-4 py-2 text-sm text-gray-400 select-none"
             >
-              <ShoppingBag className="w-4 h-4 text-white" />
+              Search products...
             </div>
-            <span className="font-bold text-gray-900 text-lg">Luxora</span>
-          </div>
-
-          <nav className="hidden lg:flex items-center gap-7 text-sm font-medium">
-            {navLinks.map((item, i) => (
-              <a
-                key={item}
-                href="#"
-                className={
-                  i === 0
-                    ? "text-indigo-600"
-                    : "text-gray-600 hover:text-gray-900 transition-colors"
-                }
-              >
-                {item}
-              </a>
-            ))}
-          </nav>
-
-          <div className="hidden md:flex items-center flex-1 max-w-xs">
-            <div className="relative w-full">
-              <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="Search products..."
-                className="w-full bg-gray-100 rounded-full pl-9 pr-4 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200 transition"
-              />
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3 sm:gap-4 shrink-0">
-            <button className="relative hidden sm:inline-flex text-gray-500 hover:text-gray-800">
-              <Heart className="w-5 h-5" />
-              <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] leading-none rounded-full w-4 h-4 flex items-center justify-center">
-                2
-              </span>
-            </button>
-            <button
-              onClick={openCart}
-              className="relative text-gray-500 hover:text-gray-800"
-              aria-label="Savatni ochish"
-            >
-              <ShoppingCart className="w-5 h-5" />
-              {totalCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 bg-indigo-600 text-white text-[10px] leading-none rounded-full w-4 h-4 flex items-center justify-center">
-                  {totalCount > 9 ? "9+" : totalCount}
-                </span>
-              )}
-            </button>
-            <button
-              onClick={onOpenLogin}
-              className="hidden sm:inline-flex text-gray-500 hover:text-gray-800"
-              aria-label="Kirish"
-            >
-              <User className="w-5 h-5" />
-            </button>
-            <button className="hidden sm:inline-flex items-center gap-1.5 bg-gray-900 text-white text-xs font-semibold rounded-full px-3.5 py-2 hover:bg-black transition">
-              <LayoutGrid className="w-3.5 h-3.5" />
-              Admin
-            </button>
-
-            <button
-              onClick={() => setMobileOpen((v) => !v)}
-              className="lg:hidden text-gray-700"
-              aria-label="Menyuni ochish"
-            >
-              {mobileOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-            </button>
           </div>
         </div>
 
-        {mobileOpen && (
-          <div className="lg:hidden border-t border-gray-100 bg-white px-4 py-4 space-y-4">
-            <div className="relative">
-              <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="Search products..."
-                className="w-full bg-gray-100 rounded-full pl-9 pr-4 py-2 text-sm outline-none"
-              />
-            </div>
-            <nav className="flex flex-col gap-3 text-sm font-medium">
-              {navLinks.map((item, i) => (
-                <a
-                  key={item}
-                  href="#"
-                  className={i === 0 ? "text-indigo-600" : "text-gray-700"}
-                >
-                  {item}
-                </a>
-              ))}
-            </nav>
-            <div className="flex items-center gap-4 pt-2 border-t border-gray-100">
-              <Heart className="w-5 h-5 text-gray-500" />
-              <button onClick={onOpenLogin} aria-label="Kirish">
-                <User className="w-5 h-5 text-gray-500" />
-              </button>
-              <button className="flex items-center gap-1.5 bg-gray-900 text-white text-xs font-semibold rounded-full px-3.5 py-2">
-                <LayoutGrid className="w-3.5 h-3.5" />
-                Admin
-              </button>
+        <div className="flex items-center gap-3 sm:gap-4 shrink-0">
+          <button
+            onClick={openWishlist}
+            className="relative inline-flex text-gray-500 hover:text-gray-800"
+            aria-label="Sevimlilarni ochish"
+          >
+            <Heart className="w-5 h-5" />
+            {wishlistCount > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] leading-none rounded-full w-4 h-4 flex items-center justify-center">
+                {wishlistCount > 9 ? "9+" : wishlistCount}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={openCart}
+            className="relative text-gray-500 hover:text-gray-800"
+            aria-label="Savatni ochish"
+          >
+            <ShoppingCart className="w-5 h-5" />
+            {totalCount > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 bg-indigo-600 text-white text-[10px] leading-none rounded-full w-4 h-4 flex items-center justify-center">
+                {totalCount > 9 ? "9+" : totalCount}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={onOpenLogin}
+            className="hidden sm:inline-flex text-gray-500 hover:text-gray-800"
+            aria-label="Kirish"
+          >
+            <User className="w-5 h-5" />
+          </button>
+          <button className="hidden sm:inline-flex items-center gap-1.5 bg-gray-900 text-white text-xs font-semibold rounded-full px-3.5 py-2 hover:bg-black transition">
+            <LayoutGrid className="w-3.5 h-3.5" />
+            Admin
+          </button>
+
+          <button
+            onClick={() => setMobileOpen((v) => !v)}
+            className="lg:hidden text-gray-700"
+            aria-label="Menyuni ochish"
+          >
+            {mobileOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          </button>
+        </div>
+      </div>
+
+      {mobileOpen && (
+        <div className="lg:hidden border-t border-gray-100 bg-white px-4 py-4 space-y-4">
+          <div className="relative" onClick={() => { setMobileOpen(false); onOpenSearch(); }}>
+            <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <div className="w-full bg-gray-100 rounded-full pl-9 pr-4 py-2 text-sm text-gray-400">
+              Search products...
             </div>
           </div>
-        )}
-      </header>
+          <nav className="flex flex-col gap-3 text-sm font-medium">
+            {navLinks.map((item) => (
+              <button
+                key={item}
+                type="button"
+                onClick={() => handleNavClick(item)}
+                className={
+                  activePage === item.toLowerCase()
+                    ? "text-indigo-600 text-left"
+                    : "text-gray-700 text-left"
+                }
+              >
+                {item}
+              </button>
+            ))}
+          </nav>
+          <div className="flex items-center gap-4 pt-2 border-t border-gray-100">
+            <button onClick={() => { setMobileOpen(false); openWishlist(); }} aria-label="Sevimlilar">
+              <Heart className="w-5 h-5 text-gray-500" />
+            </button>
+            <button onClick={() => { setMobileOpen(false); onOpenLogin(); }} aria-label="Kirish">
+              <User className="w-5 h-5 text-gray-500" />
+            </button>
+            <button className="flex items-center gap-1.5 bg-gray-900 text-white text-xs font-semibold rounded-full px-3.5 py-2">
+              <LayoutGrid className="w-3.5 h-3.5" />
+              Admin
+            </button>
+          </div>
+        </div>
+      )}
+    </header>
+  );
+}
 
+function LuxoraHome() {
+  useGoogleFont();
+
+  return (
+    <div className="min-h-screen w-full">
       {/* HERO */}
       <section
         className="relative overflow-x-clip"
@@ -1976,26 +1939,286 @@ function CartToast() {
 /* ============================================================
    8) ASOSIY APP — hammasini birlashtiradi
    ============================================================ */
+/* ============================================================
+   SEARCH OVERLAY — global qidiruv
+   ============================================================ */
+function SearchOverlay({ isOpen, onClose, onNavigate }) {
+  const [query, setQuery] = useState("");
+  const { addItem } = useCart();
+  const inputRef = React.useRef(null);
+
+  useEffect(() => {
+    if (isOpen && inputRef.current) {
+      setTimeout(() => inputRef.current?.focus(), 100);
+    }
+    if (!isOpen) setQuery("");
+  }, [isOpen]);
+
+  useEffect(() => {
+    function handleEsc(e) {
+      if (e.key === "Escape") onClose();
+    }
+    if (isOpen) window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [isOpen, onClose]);
+
+  const results = query.trim().length > 0
+    ? allProducts.filter(
+        (p) =>
+          p.name.toLowerCase().includes(query.toLowerCase()) ||
+          p.brand.toLowerCase().includes(query.toLowerCase()) ||
+          p.category.toLowerCase().includes(query.toLowerCase())
+      )
+    : [];
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[180] flex items-start justify-center pt-20 sm:pt-28 px-4">
+      <div onClick={onClose} className="fixed inset-0 bg-black/50 backdrop-blur-sm" />
+      <div className="relative bg-white rounded-2xl shadow-2xl max-w-xl w-full overflow-hidden" style={{ animation: "fadeInUp 0.2s ease-out" }}>
+        {/* Search input */}
+        <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-100">
+          <Search className="w-5 h-5 text-gray-400 shrink-0" />
+          <input
+            ref={inputRef}
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search products, brands, categories..."
+            className="flex-1 text-sm text-gray-900 outline-none placeholder-gray-400"
+          />
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-700">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Results */}
+        <div className="max-h-[50vh] overflow-y-auto">
+          {query.trim().length === 0 ? (
+            <div className="px-5 py-8 text-center text-gray-400">
+              <Search className="w-8 h-8 mx-auto mb-3 opacity-30" />
+              <p className="text-sm">Mahsulot, brend yoki kategoriya qidiring</p>
+            </div>
+          ) : results.length === 0 ? (
+            <div className="px-5 py-8 text-center text-gray-400">
+              <p className="text-sm">"<span className="text-gray-600 font-medium">{query}</span>" bo'yicha natija topilmadi</p>
+            </div>
+          ) : (
+            <ul className="py-2">
+              {results.map((product) => (
+                <li
+                  key={product.id}
+                  className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 cursor-pointer transition-colors"
+                  onClick={() => {
+                    onClose();
+                    onNavigate("shop");
+                  }}
+                >
+                  <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center shrink-0 overflow-hidden">
+                    <img src={product.image} alt={product.name} className="w-full h-full object-cover rounded-xl" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-indigo-600 font-semibold">{product.brand}</p>
+                    <p className="text-gray-900 text-sm font-semibold truncate">{product.name}</p>
+                    <p className="text-gray-500 text-xs">{product.category}</p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-gray-900 font-bold text-sm">${product.price.toLocaleString()}</p>
+                    {product.oldPrice && (
+                      <p className="text-gray-400 text-xs line-through">${product.oldPrice.toLocaleString()}</p>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        {/* Footer hint */}
+        <div className="px-5 py-3 border-t border-gray-100 flex items-center justify-between text-xs text-gray-400">
+          <span>ESC — yopish</span>
+          {results.length > 0 && <span>{results.length} ta natija</span>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+   WISHLIST DRAWER — sevimlilar paneli
+   ============================================================ */
+function WishlistDrawer() {
+  const { items, isOpen, closeWishlist, removeItem, totalCount } = useWishlist();
+  const { addItem: addToCart } = useCart();
+
+  return (
+    <>
+      <div
+        onClick={closeWishlist}
+        className={`fixed inset-0 bg-black/50 z-[90] transition-opacity ${
+          isOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+        }`}
+      />
+
+      <aside
+        className={`fixed top-0 right-0 h-full w-full sm:w-96 bg-white z-[100] shadow-2xl flex flex-col transition-transform duration-300 ${
+          isOpen ? "translate-x-0" : "translate-x-full"
+        }`}
+        aria-hidden={!isOpen}
+      >
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <h2 className="font-bold text-gray-900 text-lg flex items-center gap-2">
+            <Heart className="w-5 h-5 text-red-500 fill-red-500" />
+            Sevimlilar{totalCount > 0 ? ` (${totalCount})` : ""}
+          </h2>
+          <button onClick={closeWishlist} className="text-gray-400 hover:text-gray-700" aria-label="Yopish">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-5 py-4">
+          {items.length === 0 ? (
+            <div className="h-full flex flex-col items-center justify-center text-center text-gray-400 gap-3">
+              <Heart className="w-10 h-10" />
+              <p className="text-sm">Sevimlilar ro'yxati bo'sh</p>
+              <p className="text-xs">Mahsulotlardagi ♥ tugmasini bosing</p>
+            </div>
+          ) : (
+            <ul className="space-y-4">
+              {items.map((item) => (
+                <li key={item.id} className="flex gap-3 p-3 rounded-xl border border-gray-100 hover:shadow-md transition">
+                  <div className="w-16 h-16 rounded-xl bg-gray-100 flex items-center justify-center shrink-0 overflow-hidden">
+                    {item.image ? (
+                      <img src={item.image} alt={item.name} className="w-full h-full object-cover rounded-xl" />
+                    ) : item.icon ? (
+                      <item.icon className="w-7 h-7 text-gray-600" strokeWidth={1.5} />
+                    ) : (
+                      <Heart className="w-6 h-6 text-gray-400" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    {item.brand && <p className="text-indigo-600 text-[11px] font-semibold">{item.brand}</p>}
+                    <p className="text-gray-900 text-sm font-semibold leading-tight truncate">{item.name}</p>
+                    <p className="text-gray-900 text-sm font-bold mt-1">${item.price?.toLocaleString()}</p>
+                    <div className="flex items-center gap-2 mt-2">
+                      <button
+                        onClick={() => {
+                          addToCart({ id: item.id, name: item.name, brand: item.brand, price: item.price, image: item.image, icon: item.icon, iconBg: item.iconBg });
+                        }}
+                        className="flex items-center gap-1 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-full px-3 py-1.5 transition"
+                      >
+                        <ShoppingCart className="w-3 h-3" />
+                        Savatga
+                      </button>
+                      <button
+                        onClick={() => removeItem(item.id)}
+                        className="text-gray-300 hover:text-red-500 transition"
+                        aria-label="O'chirish"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </aside>
+    </>
+  );
+}
+
+function WishlistToast() {
+  const { toast } = useWishlist();
+
+  return (
+    <div
+      className={`fixed bottom-5 left-1/2 -translate-x-1/2 z-[110] transition-all duration-300 ${
+        toast ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3 pointer-events-none"
+      }`}
+    >
+      <div className="flex items-center gap-2 bg-gray-900 text-white text-sm font-medium rounded-full pl-3 pr-4 py-2 shadow-xl">
+        <Heart className="w-4 h-4 text-red-400 fill-red-400" />
+        {toast}
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+   8) ASOSIY APP — hammasini birlashtiradi
+   ============================================================ */
 export default function App() {
   const [showLogin, setShowLogin] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
+  // "home" | "shop" | "categories" | "blog" | "about"
+  const [page, setPage] = useState("home");
+  const [shopCategory, setShopCategory] = useState("All");
+
+  // Categories sahifasida kartochka bosilganda shu funksiya chaqiriladi:
+  // tanlangan kategoriyani saqlab, Shop sahifasiga o'tkazadi
+  function handleCategorySelect(categoryName) {
+    setShopCategory(categoryName);
+    setPage("shop");
+  }
 
   return (
     <CartProvider>
-      <LuxoraHome onOpenLogin={() => setShowLogin(true)} />
-      <LuxoraCategories />
-      <LuxoraFlashSale />
-      <LuxoraBestSellers />
-      <LuxoraNewArrivals />
-      <LuxoraBrands />
-      <LuxoraPromoBanner />
-      <LuxoraTestimonials />
-      <LuxoraNewsletter />
-      <LuxoraFooter />
+      <WishlistProvider>
+        <Navbar
+          onOpenLogin={() => setShowLogin(true)}
+          onOpenSearch={() => setShowSearch(true)}
+          activePage={page}
+          onNavigate={setPage}
+        />
 
-      <CartDrawer />
-      <CartToast />
+        {page === "home" && (
+          <>
+            <LuxoraHome />
+            <LuxoraCategories />
+            <LuxoraFlashSale />
+            <LuxoraBestSellers />
+            <LuxoraNewArrivals />
+            <LuxoraBrands />
+            <LuxoraPromoBanner />
+            <LuxoraTestimonials />
+            <LuxoraNewsletter />
+            <LuxoraFooter />
+          </>
+        )}
 
-      {showLogin && <LuxoraLogin onClose={() => setShowLogin(false)} />}
+        {page === "shop" && <Shop initialCategory={shopCategory} />}
+
+        {page === "categories" && (
+          <CategoriesPage onCategorySelect={handleCategorySelect} />
+        )}
+
+        {page === "blog" && (
+          <>
+            <BlogPage />
+            <LuxoraNewsletter />
+            <LuxoraFooter />
+          </>
+        )}
+
+        {page === "about" && (
+          <>
+            <AboutPage />
+            <LuxoraNewsletter />
+            <LuxoraFooter />
+          </>
+        )}
+
+        <CartDrawer />
+        <CartToast />
+        <WishlistDrawer />
+        <WishlistToast />
+        <SearchOverlay isOpen={showSearch} onClose={() => setShowSearch(false)} onNavigate={setPage} />
+
+        {showLogin && <LuxoraLogin onClose={() => setShowLogin(false)} />}
+      </WishlistProvider>
     </CartProvider>
   );
 }
